@@ -2,7 +2,10 @@ const std = @import("std");
 const system = @import("system/registers.zig");
 
 pub fn main() void {
-    std.log.info("All your codebase are belong to us.", .{});
+
+    //TODO enable overall system clock
+    system.RCC.AHB1ENR.modify(.{ .GPIOC = 1 }); //enable GPIOC clock
+    system.GPIOC.MODER.modify(.{ .MODER10 = 0b01 }); //set GPIOC as output
 }
 
 test "basic test" {
