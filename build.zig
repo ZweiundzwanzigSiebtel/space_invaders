@@ -1,10 +1,7 @@
 const std = @import("std");
 
 pub fn build(b: *std.build.Builder) void {
-    // Standard target options allows the person running `zig build` to choose
-    // what target to build for. Here we do not override the defaults, which
-    // means any target is allowed, and the default is native. Other options
-    // for restricting supported target set are available.
+    // Target STM32F401RE
     const target = .{
         .cpu_arch = .thumb,
         .cpu_model = .{ .explicit = &std.Target.arm.cpu.cortex_m4 },
@@ -16,20 +13,34 @@ pub fn build(b: *std.build.Builder) void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    const exe = b.addExecutable("sat", "src/main.zig");
-    exe.setTarget(target);
-    exe.setBuildMode(mode);
-    exe.install();
-    exe.setLinkerScriptPath("src/system/linker.ld");
+    const elf = b.addExecutable("space_invaders", "src/startup.zig");
+    elf.setTarget(target);
+    elf.setBuildMode(mode);
 
-    const run_cmd = exe.run();
-    run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
+    const vectors = b.addObject("vector", "src/system/vector.zig");
+    vectors.setTarget(target);
+    vectors.setBuildMode(mode);
 
-    const run_step = b.step("run", "Run the app");
-    run_step.dependOn(&run_cmd.step);
+    elf.addObject(vectors);
+    elf.setLinkerScriptPath(.{ .path = "src/system/linker.ld" });
+
+    const bin = b.addInstallRaw(elf, "space_invaders.bin", .{});
+    const bin_step = b.step("bin", "Generate binary...");
+    bin_step.dependOn(&bin.step);
+
+    const flash_cmd = b.addSystemCommand(&[_][]const u8{
+        "st-flash",
+        "write",
+        b.getInstallPath(bin.dest_dir, bin.dest_filename),
+        "0x8000000",
+    });
+
+    flash_cmd.step.dependOn(&bin.step);
+    const flash_step = b.step("flash", "Flash and run the app on the STM32F401RE");
+    flash_step.dependOn(&flash_cmd.step);
+
+    b.default_step.dependOn(&elf.step);
+    b.installArtifact(elf);
 
     const exe_tests = b.addTest("src/main.zig");
     exe_tests.setTarget(target);
