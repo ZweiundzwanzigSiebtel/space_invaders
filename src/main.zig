@@ -1,7 +1,7 @@
 const std = @import("std");
 const system = @import("system/registers.zig");
 
-pub fn main() anyerror!void {
+pub fn main() void {
     std.log.info("All your codebase are belong to us.", .{});
 }
 
